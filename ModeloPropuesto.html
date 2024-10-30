@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8">
+    <title>Simulación Máquina Borracintas de Turing</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 20px;
+            background-color: #dd9fdf;
+        }
+        h1 {
+            color: #333;
+        }
+        #input-section, #control-buttons {
+            margin-top: 15px;
+        }
+        #tape {
+            font-size: 1.5em;
+            margin: 20px 0;
+            padding: 10px;
+            border: 2px solid #333;
+            display: flex;
+            gap: 5px;
+            background-color: #fff;
+            overflow-x: auto;
+        }
+        .cell {
+            width: 30px;
+            height: 30px;
+            text-align: center;
+            line-height: 30px;
+            font-weight: bold;
+            color: #333;
+        }
+        .highlight {
+            background-color: yellow;
+        }
+        button {
+            padding: 10px 15px;
+            margin: 5px;
+            cursor: pointer;
+            font-size: 1em;
+        }
+        #state-circle {
+            font-size: 1.2em;
+            margin: 15px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+                
+        }
+        .state {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #fff;
+            border: 2px solid #333;
+            color: #333;
+            font-weight: bold;
+            position: absolute;
+            transition: background-color 0.3s;
+        }
+        .active-state {
+            background-color: yellow;
+        }
+        .state[data-state="A"] { top: 10%; left: 50%; transform: translate(-50%, -50%); }
+        .state[data-state="B"] { top: 50%; left: 90%; transform: translate(-50%, -50%); }
+        .state[data-state="C"] { top: 90%; left: 50%; transform: translate(-50%, -50%); }
+        .state[data-state="D"] { top: 50%; left: 10%; transform: translate(-50%, -50%); }
+    </style>
+</head>
+<body>
+    <h1>Simulación Máquina Borracintas de Turing</h1>
+    <div id="input-section">
+        <label for="tapeInput">Introduce la cinta inicial (solo 0 y 1):</label>
+        <input type="text" id="tapeInput" placeholder="Ejemplo: 1010101" maxlength="20"><br><br>
+        <label for="headPosition">Posición inicial del cabezal (0 a longitud de cinta - 1):</label>
+        <input type="number" id="headPosition" placeholder="Ejemplo: 3" min="0">
+        <button onclick="initializeTape()">Ingresar Cinta</button>
+    </div>
+    <div id="tape"></div>
+
+    <!-- Ruleta de estados posicionada entre la cinta y los botones de control -->
+    <div id="state-circle">
+        <div class="state" data-state="A">A</div>
+        <div class="state" data-state="B">B</div>
+        <div class="state" data-state="C">C</div>
+        <div class="state" data-state="D">D</div>
+    </div>
+
+    <div id="current-state">Estado actual: <span id="stateDisplay">A</span></div>
+
+    <div id="control-buttons">
+        <button onclick="nextStep()">Siguiente Paso</button>
+        <button onclick="previousStep()">Retroceder Paso</button>
+        <button onclick="resetTape()">Reiniciar Cinta</button>
+    </div>
+
+    <script>
+        let tapeArray = [];
+        let currentPosition = 0;
+        let currentState = 'A';
+        let history = [];
+        let initialTapeArray = [];
+        let initialPosition = 0;
+
+        // Función para inicializar la cinta
+        function initializeTape() {
+            const input = document.getElementById('tapeInput').value;
+            const positionInput = document.getElementById('headPosition').value;
+            const headPosition = parseInt(positionInput, 10);
+
+            if (/^[01]+$/.test(input) && !isNaN(headPosition) && headPosition >= 0 && headPosition < input.length) {
+                tapeArray = input.split('');
+                initialTapeArray = [...tapeArray];
+                currentPosition = headPosition; 
+                initialPosition = headPosition;
+                currentState = 'A';
+                history = [];
+                updateStateDisplay();
+                displayTape();
+            } else {
+                alert("Por favor, ingrese una cinta válida de 0 y 1, y una posición válida para el cabezal.");
+            }
+        }
+
+        // Función para mostrar la cinta actual
+        function displayTape() {
+            const tapeDiv = document.getElementById('tape');
+            tapeDiv.innerHTML = '';
+            tapeArray.forEach((symbol, index) => {
+                const cell = document.createElement('div');
+                cell.className = 'cell';
+                cell.textContent = symbol;
+                if (index === currentPosition) {
+                    cell.classList.add('highlight');
+                }
+                tapeDiv.appendChild(cell);
+            });
+        }
+
+        // Función para actualizar el estado mostrado en la interfaz y en la ruleta
+        function updateStateDisplay() {
+            document.getElementById('stateDisplay').textContent = currentState;
+            document.querySelectorAll('.state').forEach(el => el.classList.remove('active-state'));
+            document.querySelector(`.state[data-state="${currentState}"]`).classList.add('active-state');
+        }
+
+        // Función para avanzar un paso según el estado actual
+        function nextStep() {
+            if (tapeArray.every(symbol => symbol === '0')) {
+                alert("La cinta ha sido borrada completamente.");
+                return;
+            }
+
+            if (currentPosition >= tapeArray.length) {
+                tapeArray.push('0');
+            }
+
+            if (currentPosition < 0) {
+                alert("La cinta ha alcanzado el límite izquierdo.");
+                currentPosition = 0;
+                return;
+            }
+
+            history.push({ tape: [...tapeArray], position: currentPosition, state: currentState });
+
+            const symbol = tapeArray[currentPosition];
+
+            switch (currentState) {
+                case 'A':
+                    if (symbol === '1') {
+                        tapeArray[currentPosition] = '0';
+                        currentPosition--;
+                        currentState = 'B';
+                    } else {
+                        currentPosition--;
+                    }
+                    break;
+                case 'B':
+                    tapeArray[currentPosition] = '0';
+                    currentPosition++;
+                    currentState = 'C';
+                    break;
+                case 'C':
+                    if (symbol === '1') {
+                        tapeArray[currentPosition] = '0';
+                        currentPosition++;
+                        currentState = 'D';
+                    } else {
+                        currentPosition++;
+                    }
+                    break;
+                case 'D':
+                    tapeArray[currentPosition] = '1';
+                    currentPosition--;
+                    currentState = 'A';
+                    break;
+            }
+
+            updateStateDisplay();
+            displayTape();
+        }
+
+        // Función para retroceder un paso
+        function previousStep() {
+            if (history.length > 0) {
+                const lastState = history.pop();
+                tapeArray = lastState.tape;
+                currentPosition = lastState.position;
+                currentState = lastState.state;
+                updateStateDisplay();
+                displayTape();
+            } else {
+                alert("No hay más pasos para retroceder.");
+            }
+        }
+
+        // Función para reiniciar la cinta al estado inicial
+        function resetTape() {
+            tapeArray = [...initialTapeArray];
+            currentPosition = initialPosition;
+            currentState = 'A';
+            history = [];
+            updateStateDisplay();
+            displayTape();
+        }
+    </script>
+</body>
+</html>
